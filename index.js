@@ -133,6 +133,41 @@ function placeLetter(x, y, letter) {
   render();
 }
 
+function findWords() {
+  let words = [];
+  let currentWord = "";
+
+  function processCell(x, y) {
+    let boardIndex = y * HEIGHT + x;
+    let letter = state.board[boardIndex].letter;
+    if (letter) {
+      currentWord += letter;
+    } else {
+      if (currentWord.length >= 2) {
+        words.push(currentWord);
+      }
+      currentWord = "";
+    }
+  }
+
+  // searching for words vertically
+  for (let x = 0; x < WIDTH; x++) {
+    currentWord = "";
+    for (let y = 0; y < HEIGHT; y++) {
+      processCell(x, y);
+    }
+  }
+
+  // searching for words horizontally
+  for (let y = 0; y < HEIGHT; y++) {
+    currentWord = "";
+    for (let x = 0; x < WIDTH; x++) {
+      processCell(x, y);
+    }
+  }
+  return words;
+}
+
 function render() {
   const boardEl = document.getElementById("dabble-board");
   const letterDisplayEl = document.getElementById("letter-display");
