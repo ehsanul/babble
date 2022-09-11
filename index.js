@@ -184,9 +184,17 @@ function findNewBoardWords() {
     }
   }
 
-  // TODO
-  // iterateBoard(init, processCell)
+  iterateBoard(init, processCell)
 
+  return boardWords;
+}
+
+// iterates over the board, first vertically, then horizontally.
+// init is a function that runs at the start of each column or row, depending on
+// direction.
+// processCell runs for a single grid cell of the board, and is passed the x, y
+// and direction values.
+function iterateBoard(init, processCell) {
   // searching for words vertically
   for (let x = 0; x < WIDTH; x++) {
     init(x, 0)
@@ -202,8 +210,6 @@ function findNewBoardWords() {
       processCell(x, y, HORIZONTAL);
     }
   }
-
-  return boardWords;
 }
 
 function finalizeTurn() {
