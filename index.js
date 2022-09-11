@@ -1,10 +1,10 @@
 const WIDTH = 15;
 const HEIGHT = 15;
 
-let WORDS = new Set();
+let DICTIONARY = new Set();
 (async function () {
   const response = await fetch("words.txt");
-  WORDS = new Set((await response.text()).split("\r\n"));
+  DICTIONARY = new Set((await response.text()).split("\r\n"));
 })();
 
 const POUCH_START = {
@@ -57,7 +57,7 @@ function startNewGame() {
   state.p1.letters = [];
   state.p2.letters = [];
   state.board = Array.from(Array(WIDTH * HEIGHT).keys()).map((n) => {
-    return { letter: null };
+    return { letter: null, finalized: false };
   });
   for (const [letter, count] of Object.entries(POUCH_START)) {
     for (let i = 0; i < count; i++) {
@@ -128,48 +128,103 @@ function placeLetter(x, y, letter) {
 
   // and add it to board
   // TODO replace with getter/setter function
+  // FIXME don't allow this if there's already a letter there!
   let boardIndex = y * HEIGHT + x;
-  state.board[boardIndex] = { letter };
+  state.board[boardIndex] = { letter, finalized: false };
+
+  console.log(findNewBoardWords())
   render();
 }
 
-function findWords() {
-  let words = [];
-  let currentWord = "";
+const VERTICAL = 0
+const HORIZONTAL = 1
 
-  function processCell(x, y) {
+function findNewBoardWords() {
+  let boardWords = [];
+  let currentWord = "";
+  let allFinalized = true;
+  let start = {};
+
+  function init(x, y) {
+    currentWord = "";
+    allFinalized = true;
+    start = {x, y}
+  }
+
+  function processCell(x, y, direction) {
     let boardIndex = y * HEIGHT + x;
-    let letter = state.board[boardIndex].letter;
+    let { letter, finalized } = state.board[boardIndex];
+
     if (letter) {
       currentWord += letter;
+      allFinalized &&= finalized;
     } else {
-      if (currentWord.length >= 2) {
-        words.push(currentWord);
+      if (currentWord.length >= 2 && !allFinalized) {
+        const boardWord = {
+          word: currentWord,
+          start: start,
+          end: {x, y},
+        }
+
+        // ensure the end indices are inclusive
+        if (direction == VERTICAL) {
+          boardWord.end.y -= 1
+        } else {
+          boardWord.end.x -= 1
+        }
+
+        boardWords.push(boardWord);
       }
-      currentWord = "";
+
+      if (direction == VERTICAL) {
+        init(x, y + 1)
+      } else {
+        init(x + 1, y)
+      }
     }
   }
 
+  // TODO
+  // iterateBoard(init, processCell)
+
   // searching for words vertically
   for (let x = 0; x < WIDTH; x++) {
-    currentWord = "";
+    init(x, 0)
     for (let y = 0; y < HEIGHT; y++) {
-      processCell(x, y);
+      processCell(x, y, VERTICAL);
     }
   }
 
   // searching for words horizontally
   for (let y = 0; y < HEIGHT; y++) {
-    currentWord = "";
+    init(0, y)
     for (let x = 0; x < WIDTH; x++) {
-      processCell(x, y);
+      processCell(x, y, HORIZONTAL);
     }
   }
-  return words;
+
+  return boardWords;
+}
+
+function finalizeTurn() {
+  // validate position of letters (must be in straight line, all consecutive letters (no empty board space between)
+
+  const newBoardWords = findNewBoardWords()
+
+  // validate the words
+  const invalidWords = newBoardWords.map((bw) => bw.word).filter((word) => !DICTIONARY.has(word))
+  if (invalidWords.length > 0) {
+    showError(`Words are not valid: ${ invalidWords.join(', ') }`) // TODO
+    return
+  }
+  // calculate points of new words
+  // store points in state
+  // update state of board and whose turn it is
+  // store state in backend
 }
 
 function render() {
-  const boardEl = document.getElementById("dabble-board");
+  const boardEl = document.getElementById("babble-board");
   const letterDisplayEl = document.getElementById("letter-display");
   const rows = [];
   for (let y = 0; y < HEIGHT; y++) {
