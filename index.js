@@ -1,12 +1,11 @@
 const WIDTH = 15;
 const HEIGHT = 15;
-
+// TODO switch to Trie
 let DICTIONARY = new Set();
 (async function () {
   const response = await fetch("words.txt");
   DICTIONARY = new Set((await response.text()).split("\r\n"));
 })();
-
 const POUCH_START = {
   A: 9,
   B: 2,
@@ -36,7 +35,6 @@ const POUCH_START = {
   Z: 1,
   " ": 2,
 };
-
 let state = {
   gameState: "unstarted",
   pouch: [],
@@ -50,7 +48,6 @@ let state = {
   },
   board: [],
 };
-
 function startNewGame() {
   state.gameState = "in-progress";
   state.pouch = [];
@@ -65,7 +62,6 @@ function startNewGame() {
     }
   }
 }
-
 function fillLetters(letters) {
   while (state.pouch.length > 0 && letters.length < 7) {
     let randomIndex = Math.floor(Math.random() * state.pouch.length);
@@ -73,11 +69,9 @@ function fillLetters(letters) {
     letters.push(randomLetter);
   }
 }
-
 function currentPlayerName() {
   return localStorage.getItem("player-name");
 }
-
 function currentPlayer() {
   if (state.p1.name && state.p1.name === currentPlayerName()) {
     return state.p1;
@@ -88,7 +82,6 @@ function currentPlayer() {
     return currentPlayer();
   }
 }
-
 function setupPlayerName() {
   if (state.p1.name == null) {
     const name = currentPlayerName() || prompt("Enter your name");
@@ -116,45 +109,36 @@ function setupPlayerName() {
     // to allow selecting which player you are
   }
 }
-
 function placeLetter(x, y, letter) {
   let index = currentPlayer().letters.indexOf(letter);
   if (index < 0) {
     throw new Error("Could not find letter: " + letter);
   }
-
   // remove the letter
   currentPlayer().letters.splice(index, 1)[0];
-
   // and add it to board
   // TODO replace with getter/setter function
   // FIXME don't allow this if there's already a letter there!
   let boardIndex = y * HEIGHT + x;
   state.board[boardIndex] = { letter, finalized: false };
-
-  console.log(findNewBoardWords())
+  console.log(validLetterPositions())
   render();
 }
-
 const VERTICAL = 0
 const HORIZONTAL = 1
-
 function findNewBoardWords() {
   let boardWords = [];
   let currentWord = "";
   let allFinalized = true;
   let start = {};
-
   function init(x, y) {
     currentWord = "";
     allFinalized = true;
     start = {x, y}
   }
-
   function processCell(x, y, direction) {
     let boardIndex = y * HEIGHT + x;
     let { letter, finalized } = state.board[boardIndex];
-
     if (letter) {
       currentWord += letter;
       allFinalized &&= finalized;
@@ -165,17 +149,14 @@ function findNewBoardWords() {
           start: start,
           end: {x, y},
         }
-
         // ensure the end indices are inclusive
         if (direction == VERTICAL) {
           boardWord.end.y -= 1
         } else {
           boardWord.end.x -= 1
         }
-
         boardWords.push(boardWord);
       }
-
       if (direction == VERTICAL) {
         init(x, y + 1)
       } else {
@@ -183,12 +164,9 @@ function findNewBoardWords() {
       }
     }
   }
-
   iterateBoard(init, processCell)
-
   return boardWords;
 }
-
 // iterates over the board, first vertically, then horizontally.
 // init is a function that runs at the start of each column or row, depending on
 // direction.
@@ -202,7 +180,6 @@ function iterateBoard(init, processCell) {
       processCell(x, y, VERTICAL);
     }
   }
-
   // searching for words horizontally
   for (let y = 0; y < HEIGHT; y++) {
     init(0, y)
@@ -211,12 +188,45 @@ function iterateBoard(init, processCell) {
     }
   }
 }
-
+function validLetterPositions(){
+  let isValid = true;
+  let cols = new Set()
+  let rows = new Set()
+  let seenNewLetter, seenGapAfterNewLetter;
+  function init(){
+    seenNewLetter = false;
+    seenGapAfterNewLetter = false
+  }
+  // single straight line of unfinalized letters with no gaps
+  function processCell(x,y){
+    let boardIndex = y * HEIGHT + x;
+    let { letter, finalized } = state.board[boardIndex];
+    if (letter && !finalized){
+      // if there's a new letter, then gap, then new letter, that's not allowed
+      if (seenGapAfterNewLetter){
+        isValid = false
+      }
+      cols.add(x)
+      rows.add(y)
+      seenNewLetter = true
+    } else if (!letter && seenNewLetter){
+      seenGapAfterNewLetter = true
+    }
+  }
+  iterateBoard(init, processCell)
+  if(cols.size > 1 && rows.size > 1){
+    isValid = false
+  }
+  // TODO at least one tile must be touching existing/finalised letters)
+  return isValid;
+}
 function finalizeTurn() {
   // validate position of letters (must be in straight line, all consecutive letters (no empty board space between)
-
+  if (!validLetterPositions()) {
+    showError("Letters must be in a straight line without gaps.")
+    return
+  }
   const newBoardWords = findNewBoardWords()
-
   // validate the words
   const invalidWords = newBoardWords.map((bw) => bw.word).filter((word) => !DICTIONARY.has(word))
   if (invalidWords.length > 0) {
@@ -228,7 +238,6 @@ function finalizeTurn() {
   // update state of board and whose turn it is
   // store state in backend
 }
-
 function render() {
   const boardEl = document.getElementById("babble-board");
   const letterDisplayEl = document.getElementById("letter-display");
@@ -255,7 +264,6 @@ function render() {
             ${rows.join("\n")}
         </table>
     `;
-
   letterDisplayEl.innerHTML = `
         <div>
             ${currentPlayer()
@@ -264,7 +272,6 @@ function render() {
         </div>
     `;
 }
-
 let letterInHand = null;
 document.addEventListener("click", function (event) {
   if (event.target.tagName === "BUTTON") {
@@ -274,13 +281,11 @@ document.addEventListener("click", function (event) {
   if (event.target.tagName === "TD") {
     const x = parseInt(event.target.attributes.x.value, 10);
     const y = parseInt(event.target.attributes.y.value, 10);
-    console.log({ x, y, letterInHand });
     placeLetter(x, y, letterInHand);
   }
   render();
   return false;
 });
-
 if (state.gameState === "unstarted") {
   startNewGame();
 }
