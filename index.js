@@ -65,6 +65,11 @@ let state = {
   board: [],
 };
 
+function showError(message) {
+  // TODO make this nicer
+  alert(message)
+}
+
 function startNewGame() {
   state.gameId = state.gameId || uuid(); // TODO import
   state.gameState = "in-progress";
@@ -257,8 +262,19 @@ function validLetterPositions(){
   return isValid;
 }
 
+/**
+ * @returns state or null if none found
+ */
 async function getState() {
-  throw new Error("Not implemented")
+  const response = await fetch(`https://babble-s3uploadbucket-i308a30a9z9n.s3.us-east-2.amazonaws.com/${state.gameId}`)
+  if (response.status >= 200 && response.status <= 299) {
+    const newState = await response.json()
+    return newState
+  } else if (response.status == 404 || response.status == 403) {
+    return null
+  } else {
+    throw new Error("Failure to get state: ", response)
+  }
 }
 
 // save state to backend
@@ -270,15 +286,27 @@ async function persistState() {
    * and just overwriting anything they want here!
    */
   const latestState = await getState()
-  if (latestState.sequence !== state.sequence) {
+  if (latestState && latestState.sequence !== state.sequence) {
     showError("Something wrong: state is stale")
     throw new Error("Stale state")
   }
   state.sequence++
 
-  // TODO actual persistence here
-  throw new Error("Not implemented")
+  const apiEndPoint = 'https://qfhoof8bl7.execute-api.us-east-2.amazonaws.com/uploads'
+  const uploadURLResponse = await fetch(`${apiEndPoint}?game_id=${state.gameId}`)
+
+  const {uploadURL} = await uploadURLResponse.json()
+  const uploadResponse = await fetch(uploadURL, {
+    method: 'PUT',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(state)
+  })
+
+  if (uploadResponse.status < 200 && uploadResponse.status > 299) {
+    throw new Error("Failure to get state: ", response)
+  }
 }
+
 
 function finalizeTurn() {
   // validate position of letters (must be in straight line, all consecutive letters (no empty board space between)
@@ -345,7 +373,7 @@ function render() {
   letterDisplayEl.innerHTML = `
         <div>
             ${currentPlayer()
-              .letters.map((l) => `<button>${l}</button>`)
+              .letters.map((l) => `<button class="piece">${l}</button>`)
               .join("\n")}
         </div>
     `;
@@ -353,10 +381,15 @@ function render() {
 
 let letterInHand = null;
 document.addEventListener("click", function (event) {
-  if (event.target.tagName === "BUTTON") {
+  if (event.target.className === "piece") {
     // TODO make this proper selector? or use classname
     letterInHand = event.target.innerText;
   }
+
+  if (event.target.id === "turn-submit") {
+    finalizeTurn()
+  }
+
   if (event.target.tagName === "TD") {
     const x = parseInt(event.target.attributes.x.value, 10);
     const y = parseInt(event.target.attributes.y.value, 10);
