@@ -1,11 +1,13 @@
 const WIDTH = 15;
 const HEIGHT = 15;
+
 // TODO switch to Trie
 let DICTIONARY = new Set();
 (async function () {
   const response = await fetch("words.txt");
   DICTIONARY = new Set((await response.text()).split("\r\n"));
 })();
+
 const POUCH_START = {
   A: 9,
   B: 2,
@@ -35,24 +37,42 @@ const POUCH_START = {
   Z: 1,
   " ": 2,
 };
+
+// Author: Abhishek Dutta, 12 June 2020
+// License: CC0 (https://creativecommons.org/choose/zero/)
+function uuid() {
+  var temp_url = URL.createObjectURL(new Blob());
+  var uuid = temp_url.toString();
+  URL.revokeObjectURL(temp_url);
+  return uuid.substr(uuid.lastIndexOf('/') + 1); // remove prefix (e.g. blob:null/, blob:www.test.com/, ...)
+}
+
 let state = {
+  gameId: null,
   gameState: "unstarted",
+  sequence: 0,
   pouch: [],
   p1: {
     name: null,
     letters: [],
+    turn: true,
   },
   p2: {
     name: null,
     letters: [],
+    turn: false,
   },
   board: [],
 };
+
 function startNewGame() {
+  state.gameId = state.gameId || uuid(); // TODO import
   state.gameState = "in-progress";
   state.pouch = [];
   state.p1.letters = [];
   state.p2.letters = [];
+  state.p1.turn = true;
+  state.p2.turn = false;
   state.board = Array.from(Array(WIDTH * HEIGHT).keys()).map((n) => {
     return { letter: null, finalized: false };
   });
@@ -62,6 +82,7 @@ function startNewGame() {
     }
   }
 }
+
 function fillLetters(letters) {
   while (state.pouch.length > 0 && letters.length < 7) {
     let randomIndex = Math.floor(Math.random() * state.pouch.length);
@@ -69,9 +90,11 @@ function fillLetters(letters) {
     letters.push(randomLetter);
   }
 }
+
 function currentPlayerName() {
   return localStorage.getItem("player-name");
 }
+
 function currentPlayer() {
   if (state.p1.name && state.p1.name === currentPlayerName()) {
     return state.p1;
@@ -82,6 +105,7 @@ function currentPlayer() {
     return currentPlayer();
   }
 }
+
 function setupPlayerName() {
   if (state.p1.name == null) {
     const name = currentPlayerName() || prompt("Enter your name");
@@ -109,6 +133,7 @@ function setupPlayerName() {
     // to allow selecting which player you are
   }
 }
+
 function placeLetter(x, y, letter) {
   let index = currentPlayer().letters.indexOf(letter);
   if (index < 0) {
@@ -121,21 +146,24 @@ function placeLetter(x, y, letter) {
   // FIXME don't allow this if there's already a letter there!
   let boardIndex = y * HEIGHT + x;
   state.board[boardIndex] = { letter, finalized: false };
-  console.log(validLetterPositions())
   render();
 }
+
 const VERTICAL = 0
 const HORIZONTAL = 1
+
 function findNewBoardWords() {
   let boardWords = [];
   let currentWord = "";
   let allFinalized = true;
   let start = {};
+
   function init(x, y) {
     currentWord = "";
     allFinalized = true;
     start = {x, y}
   }
+
   function processCell(x, y, direction) {
     let boardIndex = y * HEIGHT + x;
     let { letter, finalized } = state.board[boardIndex];
@@ -164,9 +192,12 @@ function findNewBoardWords() {
       }
     }
   }
+
   iterateBoard(init, processCell)
+
   return boardWords;
 }
+
 // iterates over the board, first vertically, then horizontally.
 // init is a function that runs at the start of each column or row, depending on
 // direction.
@@ -188,6 +219,7 @@ function iterateBoard(init, processCell) {
     }
   }
 }
+
 function validLetterPositions(){
   let isValid = true;
   let cols = new Set()
@@ -213,31 +245,77 @@ function validLetterPositions(){
       seenGapAfterNewLetter = true
     }
   }
+
   iterateBoard(init, processCell)
+
   if(cols.size > 1 && rows.size > 1){
     isValid = false
   }
-  // TODO at least one tile must be touching existing/finalised letters)
+
+  // TODO at least one tile must be touching existing/finalised letters), or be on the middle index (for the first turn)
+
   return isValid;
 }
+
+async function getState() {
+  throw new Error("Not implemented")
+}
+
+// save state to backend
+async function persistState() {
+  /* NOTE: This sequence check is racy but we don't expect it to be
+   * common for a player to be submitting the same turn concurrently.
+   * This just protects from overwriting newer state in case of a bug
+   * or edge cases. There is nothing stopping a player from cheating
+   * and just overwriting anything they want here!
+   */
+  const latestState = await getState()
+  if (latestState.sequence !== state.sequence) {
+    showError("Something wrong: state is stale")
+    throw new Error("Stale state")
+  }
+  state.sequence++
+
+  // TODO actual persistence here
+  throw new Error("Not implemented")
+}
+
 function finalizeTurn() {
   // validate position of letters (must be in straight line, all consecutive letters (no empty board space between)
   if (!validLetterPositions()) {
     showError("Letters must be in a straight line without gaps.")
     return
   }
+
   const newBoardWords = findNewBoardWords()
-  // validate the words
   const invalidWords = newBoardWords.map((bw) => bw.word).filter((word) => !DICTIONARY.has(word))
   if (invalidWords.length > 0) {
     showError(`Words are not valid: ${ invalidWords.join(', ') }`) // TODO
     return
   }
-  // calculate points of new words
-  // store points in state
-  // update state of board and whose turn it is
-  // store state in backend
+
+  // TODO calculate points of new words
+  // TODO store points in state
+
+  // finalize all letters on board
+  iterateBoard(() => {}, (x, y) => {
+    let boardIndex = y * HEIGHT + x;
+    let { letter } = state.board[boardIndex];
+    if (letter) {
+      state.board[boardIndex].finalized = true;
+    }
+  })
+
+  // switch whose turn it is
+  state.p1.turn = !state.p1.turn
+  state.p2.turn = !state.p2.turn
+  fillLetters(currentPlayer().letters);
+
+  render()
+
+  persistState()
 }
+
 function render() {
   const boardEl = document.getElementById("babble-board");
   const letterDisplayEl = document.getElementById("letter-display");
@@ -272,6 +350,7 @@ function render() {
         </div>
     `;
 }
+
 let letterInHand = null;
 document.addEventListener("click", function (event) {
   if (event.target.tagName === "BUTTON") {
@@ -286,9 +365,11 @@ document.addEventListener("click", function (event) {
   render();
   return false;
 });
+
 if (state.gameState === "unstarted") {
   startNewGame();
 }
+
 fillLetters(state.p1.letters);
 fillLetters(state.p2.letters);
 render();
