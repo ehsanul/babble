@@ -5,7 +5,7 @@ const HEIGHT = 15;
 let DICTIONARY = new Set();
 (async function () {
   const response = await fetch("words.txt");
-  DICTIONARY = new Set((await response.text()).split("\r\n"));
+  DICTIONARY = new Set((await response.text()).split("\n"));
 })();
 
 const POUCH_START = {
@@ -44,7 +44,7 @@ function uuid() {
   var temp_url = URL.createObjectURL(new Blob());
   var uuid = temp_url.toString();
   URL.revokeObjectURL(temp_url);
-  return uuid.substr(uuid.lastIndexOf('/') + 1); // remove prefix (e.g. blob:null/, blob:www.test.com/, ...)
+  return uuid.substr(uuid.lastIndexOf("/") + 1); // remove prefix (e.g. blob:null/, blob:www.test.com/, ...)
 }
 
 let state = {
@@ -67,7 +67,7 @@ let state = {
 
 function showError(message) {
   // TODO make this nicer
-  alert(message)
+  alert(message);
 }
 
 function startNewGame() {
@@ -156,8 +156,8 @@ function placeLetter(x, y, letter) {
   render();
 }
 
-const VERTICAL = 0
-const HORIZONTAL = 1
+const VERTICAL = 0;
+const HORIZONTAL = 1;
 
 function findNewBoardWords() {
   let boardWords = [];
@@ -168,7 +168,7 @@ function findNewBoardWords() {
   function init(x, y) {
     currentWord = "";
     allFinalized = true;
-    start = {x, y}
+    start = { x, y };
   }
 
   function processCell(x, y, direction) {
@@ -182,25 +182,25 @@ function findNewBoardWords() {
         const boardWord = {
           word: currentWord,
           start: start,
-          end: {x, y},
-        }
+          end: { x, y },
+        };
         // ensure the end indices are inclusive
         if (direction == VERTICAL) {
-          boardWord.end.y -= 1
+          boardWord.end.y -= 1;
         } else {
-          boardWord.end.x -= 1
+          boardWord.end.x -= 1;
         }
         boardWords.push(boardWord);
       }
       if (direction == VERTICAL) {
-        init(x, y + 1)
+        init(x, y + 1);
       } else {
-        init(x + 1, y)
+        init(x + 1, y);
       }
     }
   }
 
-  iterateBoard(init, processCell)
+  iterateBoard(init, processCell);
 
   return boardWords;
 }
@@ -213,50 +213,50 @@ function findNewBoardWords() {
 function iterateBoard(init, processCell) {
   // searching for words vertically
   for (let x = 0; x < WIDTH; x++) {
-    init(x, 0)
+    init(x, 0);
     for (let y = 0; y < HEIGHT; y++) {
       processCell(x, y, VERTICAL);
     }
   }
   // searching for words horizontally
   for (let y = 0; y < HEIGHT; y++) {
-    init(0, y)
+    init(0, y);
     for (let x = 0; x < WIDTH; x++) {
       processCell(x, y, HORIZONTAL);
     }
   }
 }
 
-function validLetterPositions(){
+function validLetterPositions() {
   let isValid = true;
-  let cols = new Set()
-  let rows = new Set()
+  let cols = new Set();
+  let rows = new Set();
   let seenNewLetter, seenGapAfterNewLetter;
-  function init(){
+  function init() {
     seenNewLetter = false;
-    seenGapAfterNewLetter = false
+    seenGapAfterNewLetter = false;
   }
   // single straight line of unfinalized letters with no gaps
-  function processCell(x,y){
+  function processCell(x, y) {
     let boardIndex = y * HEIGHT + x;
     let { letter, finalized } = state.board[boardIndex];
-    if (letter && !finalized){
+    if (letter && !finalized) {
       // if there's a new letter, then gap, then new letter, that's not allowed
-      if (seenGapAfterNewLetter){
-        isValid = false
+      if (seenGapAfterNewLetter) {
+        isValid = false;
       }
-      cols.add(x)
-      rows.add(y)
-      seenNewLetter = true
-    } else if (!letter && seenNewLetter){
-      seenGapAfterNewLetter = true
+      cols.add(x);
+      rows.add(y);
+      seenNewLetter = true;
+    } else if (!letter && seenNewLetter) {
+      seenGapAfterNewLetter = true;
     }
   }
 
-  iterateBoard(init, processCell)
+  iterateBoard(init, processCell);
 
-  if(cols.size > 1 && rows.size > 1){
-    isValid = false
+  if (cols.size > 1 && rows.size > 1) {
+    isValid = false;
   }
 
   // TODO at least one tile must be touching existing/finalised letters), or be on the middle index (for the first turn)
@@ -268,14 +268,16 @@ function validLetterPositions(){
  * @returns state or null if none found
  */
 async function getState(gameId) {
-  const response = await fetch(`https://babble-s3uploadbucket-i308a30a9z9n.s3.us-east-2.amazonaws.com/${gameId}`)
+  const response = await fetch(
+    `https://babble-s3uploadbucket-i308a30a9z9n.s3.us-east-2.amazonaws.com/${gameId}`
+  );
   if (response.status >= 200 && response.status <= 299) {
-    const newState = await response.json()
-    return newState
+    const newState = await response.json();
+    return newState;
   } else if (response.status == 404 || response.status == 403) {
-    return null
+    return null;
   } else {
-    throw new Error("Failure to get state: ", response)
+    throw new Error("Failure to get state: ", response);
   }
 }
 
@@ -287,84 +289,96 @@ async function persistState(currentState) {
    * or edge cases. There is nothing stopping a player from cheating
    * and just overwriting anything they want here!
    */
-  const latestState = await getState(currentState.gameId)
+  const latestState = await getState(currentState.gameId);
   if (latestState && latestState.sequence !== currentState.sequence) {
-    showError("Something wrong: state is stale")
-    throw new Error("Stale state")
+    showError("Something wrong: state is stale");
+    throw new Error("Stale state");
   }
-  currentState.sequence++
+  currentState.sequence++;
 
-  const apiEndPoint = 'https://qfhoof8bl7.execute-api.us-east-2.amazonaws.com/uploads'
-  const uploadURLResponse = await fetch(`${apiEndPoint}?game_id=${currentState.gameId}`)
+  const apiEndPoint =
+    "https://qfhoof8bl7.execute-api.us-east-2.amazonaws.com/uploads";
+  const uploadURLResponse = await fetch(
+    `${apiEndPoint}?game_id=${currentState.gameId}`
+  );
 
-  const {uploadURL} = await uploadURLResponse.json()
+  const { uploadURL } = await uploadURLResponse.json();
   const uploadResponse = await fetch(uploadURL, {
-    method: 'PUT',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify(currentState)
-  })
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(currentState),
+  });
 
   if (uploadResponse.status < 200 && uploadResponse.status > 299) {
-    throw new Error("Failure to get state: ", response)
+    throw new Error("Failure to get state: ", response);
   }
 }
 
 // loop and get state until it is current player's turn, then stop looping
 function pollOtherPlayerTurn() {
-  let intervalId
+  let intervalId;
   intervalId = setInterval(async () => {
-    const newState = await getState(state.gameId)
+    const newState = await getState(state.gameId);
     if (newState) {
-      state = newState
+      state = newState;
       if (currentPlayer().turn) {
-        clearInterval(intervalId)
+        clearInterval(intervalId);
       }
     } else {
-      console.warning(`Couldn't find state object for game ${ state.gameId }`)
+      console.warning(`Couldn't find state object for game ${state.gameId}`);
     }
-  }, 1000)
+  }, 1000);
 }
 
 async function finalizeTurn() {
   // validate position of letters (must be in straight line, all consecutive letters (no empty board space between)
   if (!validLetterPositions()) {
-    showError("Letters must be in a straight line without gaps.")
-    return
+    showError("Letters must be in a straight line without gaps.");
+    return;
   }
 
-  const newBoardWords = findNewBoardWords()
-  const invalidWords = newBoardWords.map((bw) => bw.word).filter((word) => !DICTIONARY.has(word))
+  const newBoardWords = findNewBoardWords();
+  const invalidWords = newBoardWords
+    .map((bw) => bw.word)
+    .filter((word) => !DICTIONARY.has(word));
   if (invalidWords.length > 0) {
-    showError(`Words are not valid: ${ invalidWords.join(', ') }`) // TODO
-    return
+    showError(`Words are not valid: ${invalidWords.join(", ")}`); // TODO
+    return;
   }
 
   // TODO calculate points of new words
   // TODO store points in state
 
   // finalize all letters on board
-  iterateBoard(() => {}, (x, y) => {
-    let boardIndex = y * HEIGHT + x;
-    let { letter } = state.board[boardIndex];
-    if (letter) {
-      state.board[boardIndex].finalized = true;
+  iterateBoard(
+    () => {},
+    (x, y) => {
+      let boardIndex = y * HEIGHT + x;
+      let { letter } = state.board[boardIndex];
+      if (letter) {
+        state.board[boardIndex].finalized = true;
+      }
     }
-  })
+  );
 
   // switch whose turn it is
-  state.p1.turn = !state.p1.turn
-  state.p2.turn = !state.p2.turn
+  state.p1.turn = !state.p1.turn;
+  state.p2.turn = !state.p2.turn;
   fillLetters(currentPlayer().letters);
 
-  render()
+  render();
 
-  await persistState(state)
+  await persistState(state);
 
   // saves gameId to url so refresh works and can share game with other player
-  window.history.pushState({gameId: state.gameId}, '', `?game_id=${ state.gameId }`);
+  window.history.pushState(
+    { gameId: state.gameId },
+    "",
+    `?game_id=${state.gameId}`
+  );
 
   // TODO if (turnsAvailable()) {
-  pollOtherPlayerTurn()
+  pollOtherPlayerTurn();
   // TODO } else {
   // TODO finishGame();
   // TODO }
@@ -374,7 +388,7 @@ function render() {
   const boardEl = document.getElementById("babble-board");
   const letterDisplayEl = document.getElementById("letter-display");
   const turnSubmitEl = document.getElementById("turn-submit");
-  turnSubmitEl.disabled = !currentPlayer().turn
+  turnSubmitEl.disabled = !currentPlayer().turn;
   const rows = [];
   for (let y = 0; y < HEIGHT; y++) {
     let row = [];
@@ -415,7 +429,7 @@ document.addEventListener("click", function (event) {
   }
 
   if (event.target.id === "turn-submit") {
-    finalizeTurn()
+    finalizeTurn();
   }
 
   if (event.target.tagName === "TD") {
@@ -429,19 +443,19 @@ document.addEventListener("click", function (event) {
 
 (async function () {
   // setup correct current state
-  const params = (new URL(document.location)).searchParams;
+  const params = new URL(document.location).searchParams;
   const gameId = params.get("game_id");
   if (gameId) {
     // game already exists, need to to load it
-    state = await getState(gameId)
+    state = await getState(gameId);
   } else {
     // new game
-    startNewGame()
+    startNewGame();
   }
 
   if (!currentPlayer().turn) {
-    pollOtherPlayerTurn()
+    pollOtherPlayerTurn();
   }
 
   render();
-})()
+})();
