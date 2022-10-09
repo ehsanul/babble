@@ -8,6 +8,36 @@ let DICTIONARY = new Set();
   DICTIONARY = new Set((await response.text()).split("\n"));
 })();
 
+const LETTER_POINTS = {
+  A: 1,
+  B: 3,
+  C: 3,
+  D: 2,
+  E: 1,
+  F: 4,
+  G: 2,
+  H: 4,
+  I: 1,
+  J: 8,
+  K: 5,
+  L: 1,
+  M: 3,
+  N: 1,
+  O: 1,
+  P: 3,
+  Q: 10,
+  R: 1,
+  S: 1,
+  T: 1,
+  U: 1,
+  V: 4,
+  W: 4,
+  X: 8,
+  Y: 4,
+  Z: 10,
+  " ": 0,
+};
+
 const POUCH_START = {
   A: 9,
   B: 2,
@@ -56,11 +86,13 @@ let state = {
     name: null,
     letters: [],
     turn: true,
+    score: 0,
   },
   p2: {
     name: null,
     letters: [],
     turn: false,
+    score: 0,
   },
   board: [],
 };
@@ -78,6 +110,8 @@ function startNewGame() {
   state.p2.letters = [];
   state.p1.turn = true;
   state.p2.turn = false;
+  state.p1.score = 0;
+  state.p2.score = 0;
   state.board = Array.from(Array(WIDTH * HEIGHT).keys()).map((n) => {
     return { letter: null, finalized: false };
   });
@@ -351,8 +385,15 @@ async function finalizeTurn() {
     return;
   }
 
-  // TODO calculate points of new words
-  // TODO store points in state
+  // TODO get board point modifiers
+  // TODO blank letter points
+  let points = 0;
+  newBoardWords.forEach((boardWord) => {
+    boardWord.word.split("").forEach((letter) => {
+      points += LETTER_POINTS[letter];
+    });
+  });
+  currentPlayer().score += points;
 
   // finalize all letters on board
   iterateBoard(
@@ -393,6 +434,16 @@ function render() {
   const boardEl = document.getElementById("babble-board");
   const letterDisplayEl = document.getElementById("letter-display");
   const turnSubmitEl = document.getElementById("turn-submit");
+  const playerOneNameEl = document.getElementById("player-one-name");
+  const playerOneScoreEl = document.getElementById("player-one-score");
+  const playerTwoNameEl = document.getElementById("player-two-name");
+  const playerTwoScoreEl = document.getElementById("player-two-score");
+
+  playerOneNameEl.innerHTML = state.p1.name;
+  playerOneScoreEl.innerHTML = state.p1.score;
+  playerTwoNameEl.innerHTML = state.p2.name;
+  playerTwoScoreEl.innerHTML = state.p2.score;
+
   turnSubmitEl.disabled = !currentPlayer().turn;
   const rows = [];
   for (let y = 0; y < HEIGHT; y++) {
