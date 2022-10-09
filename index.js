@@ -49,7 +49,7 @@ function uuid() {
 
 let state = {
   gameId: null,
-  gameState: "unstarted",
+  gameState: "unknown",
   sequence: 0,
   pouch: [],
   p1: {
@@ -71,7 +71,7 @@ function showError(message) {
 }
 
 function startNewGame() {
-  state.gameId = state.gameId || uuid(); // TODO import
+  state.gameId = uuid();
   state.gameState = "in-progress";
   state.pouch = [];
   state.p1.letters = [];
@@ -86,6 +86,8 @@ function startNewGame() {
       state.pouch.push(letter);
     }
   }
+  fillLetters(state.p1.letters);
+  fillLetters(state.p2.letters);
 }
 
 function fillLetters(letters) {
@@ -265,8 +267,8 @@ function validLetterPositions(){
 /**
  * @returns state or null if none found
  */
-async function getState() {
-  const response = await fetch(`https://babble-s3uploadbucket-i308a30a9z9n.s3.us-east-2.amazonaws.com/${state.gameId}`)
+async function getState(gameId) {
+  const response = await fetch(`https://babble-s3uploadbucket-i308a30a9z9n.s3.us-east-2.amazonaws.com/${gameId}`)
   if (response.status >= 200 && response.status <= 299) {
     const newState = await response.json()
     return newState
@@ -278,28 +280,28 @@ async function getState() {
 }
 
 // save state to backend
-async function persistState() {
+async function persistState(currentState) {
   /* NOTE: This sequence check is racy but we don't expect it to be
    * common for a player to be submitting the same turn concurrently.
    * This just protects from overwriting newer state in case of a bug
    * or edge cases. There is nothing stopping a player from cheating
    * and just overwriting anything they want here!
    */
-  const latestState = await getState()
-  if (latestState && latestState.sequence !== state.sequence) {
+  const latestState = await getState(currentState.gameId)
+  if (latestState && latestState.sequence !== currentState.sequence) {
     showError("Something wrong: state is stale")
     throw new Error("Stale state")
   }
-  state.sequence++
+  currentState.sequence++
 
   const apiEndPoint = 'https://qfhoof8bl7.execute-api.us-east-2.amazonaws.com/uploads'
-  const uploadURLResponse = await fetch(`${apiEndPoint}?game_id=${state.gameId}`)
+  const uploadURLResponse = await fetch(`${apiEndPoint}?game_id=${currentState.gameId}`)
 
   const {uploadURL} = await uploadURLResponse.json()
   const uploadResponse = await fetch(uploadURL, {
     method: 'PUT',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify(state)
+    body: JSON.stringify(currentState)
   })
 
   if (uploadResponse.status < 200 && uploadResponse.status > 299) {
@@ -307,8 +309,23 @@ async function persistState() {
   }
 }
 
+// loop and get state until it is current player's turn, then stop looping
+function pollOtherPlayerTurn() {
+  let intervalId
+  intervalId = setInterval(async () => {
+    const newState = await getState(state.gameId)
+    if (newState) {
+      state = newState
+      if (currentPlayer().turn) {
+        clearInterval(intervalId)
+      }
+    } else {
+      console.warning(`Couldn't find state object for game ${ state.gameId }`)
+    }
+  }, 1000)
+}
 
-function finalizeTurn() {
+async function finalizeTurn() {
   // validate position of letters (must be in straight line, all consecutive letters (no empty board space between)
   if (!validLetterPositions()) {
     showError("Letters must be in a straight line without gaps.")
@@ -341,12 +358,23 @@ function finalizeTurn() {
 
   render()
 
-  persistState()
+  await persistState(state)
+
+  // saves gameId to url so refresh works and can share game with other player
+  window.history.pushState({gameId: state.gameId}, '', `?game_id=${ state.gameId }`);
+
+  // TODO if (turnsAvailable()) {
+  pollOtherPlayerTurn()
+  // TODO } else {
+  // TODO finishGame();
+  // TODO }
 }
 
 function render() {
   const boardEl = document.getElementById("babble-board");
   const letterDisplayEl = document.getElementById("letter-display");
+  const turnSubmitEl = document.getElementById("turn-submit");
+  turnSubmitEl.disabled = !currentPlayer().turn
   const rows = [];
   for (let y = 0; y < HEIGHT; y++) {
     let row = [];
@@ -399,10 +427,21 @@ document.addEventListener("click", function (event) {
   return false;
 });
 
-if (state.gameState === "unstarted") {
-  startNewGame();
-}
+(async function () {
+  // setup correct current state
+  const params = (new URL(document.location)).searchParams;
+  const gameId = params.get("game_id");
+  if (gameId) {
+    // game already exists, need to to load it
+    state = await getState(gameId)
+  } else {
+    // new game
+    startNewGame()
+  }
 
-fillLetters(state.p1.letters);
-fillLetters(state.p2.letters);
-render();
+  if (!currentPlayer().turn) {
+    pollOtherPlayerTurn()
+  }
+
+  render();
+})()
