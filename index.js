@@ -322,7 +322,8 @@ function pollOtherPlayerTurn() {
     if (newState) {
       state = newState;
       if (currentPlayer().turn) {
-        clearInterval(intervalId);
+        clearInterval(intervalId)
+        render()
       }
     } else {
       console.warning(`Couldn't find state object for game ${state.gameId}`);
