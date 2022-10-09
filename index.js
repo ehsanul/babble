@@ -322,8 +322,8 @@ function pollOtherPlayerTurn() {
     if (newState) {
       state = newState;
       if (currentPlayer().turn) {
-        clearInterval(intervalId)
-        render()
+        clearInterval(intervalId);
+        render();
       }
     } else {
       console.warning(`Couldn't find state object for game ${state.gameId}`);
@@ -339,6 +339,10 @@ async function finalizeTurn() {
   }
 
   const newBoardWords = findNewBoardWords();
+  if (newBoardWords.length === 0) {
+    showError("You must enter a valid word");
+    return;
+  }
   const invalidWords = newBoardWords
     .map((bw) => bw.word)
     .filter((word) => !DICTIONARY.has(word));
