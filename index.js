@@ -199,11 +199,13 @@ const HORIZONTAL = 1;
 function findNewBoardWords() {
   let boardWords = [];
   let currentWord = "";
+  let wordCells = [];
   let allFinalized = true;
   let start = {};
 
   function init(x, y) {
     currentWord = "";
+    wordCells = [];
     allFinalized = true;
     start = { x, y };
   }
@@ -213,11 +215,13 @@ function findNewBoardWords() {
     let { letter, finalized } = state.board[boardIndex];
     if (letter) {
       currentWord += letter;
+      wordCells.push({letter, finalized, x, y})
       allFinalized &&= finalized;
     } else {
       if (currentWord.length >= 2 && !allFinalized) {
         const boardWord = {
           word: currentWord,
+          wordCells: wordCells,
           start: start,
           end: { x, y },
         };
@@ -380,11 +384,35 @@ async function finalizeTurn() {
     showError("You must enter a valid word");
     return;
   }
-  const invalidWords = newBoardWords
+  const undefinedWords = newBoardWords
     .map((bw) => bw.word)
     .filter((word) => !DICTIONARY.has(word));
-  if (invalidWords.length > 0) {
-    showError(`Words are not valid: ${invalidWords.join(", ")}`); // TODO
+  if (undefinedWords.length > 0) {
+    showError(`Invalid scrabble word${ invalidWords.length > 0 ? 's' : '' }: ${invalidWords.join(", ")}`);
+    return;
+  }
+
+  /**
+   * We already validate that the letters are in a striaght line without gaps
+   * previously. But in addition, at least one of the new board words must either:
+   *
+   *   1. Have a new (unfinalized) letter at the center
+   *   2. Be touching a finalized letter (ie include a finalized letter within itself)
+   *
+   * */
+  const validWordCells = newBoardWords
+    .flatMap((bw) => bw.wordCells)
+    .some((wc) => {
+      const inCenter = wc.x == Math.floor(WIDTH / 2) && wc.y == Math.floor(HEIGHT / 2)
+      return wc.finalized || inCenter
+    })
+  if (!validWordCells) {
+    if (state.board.some((cell) => cell.finalized)) {
+      // if not first turn
+      showError("New words must be touching an existing word")
+    } else {
+      showError("Words must be in the center on the first turn")
+    }
     return;
   }
 
