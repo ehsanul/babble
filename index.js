@@ -186,6 +186,9 @@ function placeLetter(x, y, letter) {
   // TODO replace with getter/setter function
   // FIXME don't allow this if there's already a letter there!
   let boardIndex = y * HEIGHT + x;
+  if (state.board[boardIndex].letter) {
+    showError("Nope!")
+  }
   state.board[boardIndex] = { letter, finalized: false };
   render();
 }
