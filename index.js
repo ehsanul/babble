@@ -293,6 +293,42 @@ function iterateBoard(init, processCell) {
   }
 }
 
+// TODO blank letter points
+function calculatePoints(newBoardWords) {
+  let points = 0;
+
+  newBoardWords.forEach((boardWord) => {
+    let wordPoints = 0
+    let wordMultiplier = 1
+
+    boardWord.wordCells.forEach((wordCell) => {
+      const {letter, finalized, x, y} = wordCell
+      let letterMultiplier = 1
+
+      if (!finalized) {
+        let boardIndex = y * HEIGHT + x;
+        let pointModifier = POINT_MODIFIERS[boardIndex]
+
+        if(pointModifier === TL){
+          letterMultiplier = 3
+        } else if(pointModifier === DL){
+          letterMultiplier = 2
+        } else if(pointModifier === TW){
+          wordMultiplier *= 3
+        } else if(pointModifier === DW){
+          wordMultiplier *= 2
+        }
+      }
+
+      wordPoints += LETTER_POINTS[letter] * letterMultiplier;
+    });
+
+    points += wordPoints * wordMultiplier
+  });
+
+  return points
+}
+
 function validLetterPositions() {
   let isValid = true;
   let cols = new Set();
@@ -441,15 +477,7 @@ async function finalizeTurn() {
     return;
   }
 
-  // TODO get board point modifiers
-  // TODO blank letter points
-  let points = 0;
-  newBoardWords.forEach((boardWord) => {
-    boardWord.word.split("").forEach((letter) => {
-      points += LETTER_POINTS[letter];
-    });
-  });
-  currentPlayer().score += points;
+  currentPlayer().score += calculatePoints(newBoardWords);
 
   // finalize all letters on board
   iterateBoard(
