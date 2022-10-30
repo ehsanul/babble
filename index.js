@@ -535,8 +535,12 @@ function render() {
     for (let x = 0; x < WIDTH; x++) {
       // TODO replace with getter/setter function
       let index = y * HEIGHT + x;
+      let className = ''
+      if (x === Math.floor(WIDTH / 2) && y === Math.floor(HEIGHT / 2)) {
+        className = 'board-center'
+      }
       row.push(`
-                <td x="${x}" y="${y}">
+                <td x="${x}" y="${y}" class="${ className }">
                     ${state.board[index].letter || ""}
                 </td>
             `);
