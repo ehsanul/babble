@@ -624,13 +624,6 @@ document.addEventListener("click", function (event) {
   return false;
 });
 
-// document.addEventListener("dragstart", function (event) {
-//   event.target.classList.add("dragging")
-// })
-// 
-// document.addEventListener("dragend", function (event) {
-//   event.target.classList.remove("dragging")
-// })
 
 (async function () {
   // setup correct current state
@@ -649,4 +642,19 @@ document.addEventListener("click", function (event) {
   }
 
   render();
+
+  // document.addEventListener("dragstart", function (event) {
+  //   return false;
+  // })
+  document.addEventListener("dragstart", function (event) {
+    console.log(event)
+    setTimeout(() => {
+      event.target.classList.add("dragging")
+    }, 10)
+  })
+
+  document.addEventListener("dragend", function (event) {
+    event.target.classList.remove("dragging")
+  })
+
 })();
