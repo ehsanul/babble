@@ -133,12 +133,14 @@ function startNewGame() {
   state.pouch = [];
   state.p1.letters = [];
   state.p2.letters = [];
+  state.p1.pieces = [];
+  state.p2.pieces = [];
   state.p1.turn = true;
   state.p2.turn = false;
   state.p1.score = 0;
   state.p2.score = 0;
   state.board = Array.from(Array(WIDTH * HEIGHT).keys()).map((n) => {
-    return { letter: null, finalized: false };
+    return { letter: null, piece: null, finalized: false };
   });
   for (const [letter, count] of Object.entries(POUCH_START)) {
     for (let i = 0; i < count; i++) {
@@ -147,6 +149,8 @@ function startNewGame() {
   }
   fillLetters(state.p1.letters);
   fillLetters(state.p2.letters);
+  fillPieces(state.p1.pieces);
+  fillPieces(state.p2.pieces);
 }
 
 function fillLetters(letters) {
@@ -154,6 +158,17 @@ function fillLetters(letters) {
     let randomIndex = Math.floor(Math.random() * state.pouch.length);
     let randomLetter = state.pouch.splice(randomIndex, 1)[0];
     letters.push(randomLetter);
+  }
+}
+
+function fillPieces(pieces) {
+  while (state.pouch.length > 0 && pieces.length < 7) {
+    let randomIndex = Math.floor(Math.random() * state.pouch.length);
+    let randomLetter = state.pouch.splice(randomIndex, 1)[0];
+    pieces.push({
+      originalLetter: randomLetter,
+      finalLetter: randomLetter == " " ? null : randomLetter,
+    });
   }
 }
 
@@ -205,16 +220,32 @@ function placeLetter(x, y, letter) {
   if (index < 0) {
     throw new Error("Could not find letter: " + letter);
   }
+  // TODO replace with getter/setter function
+  let boardIndex = y * HEIGHT + x;
+  if (state.board[boardIndex].letter) {
+    showError("Can't place over another letter")
+    throw new Error("Can't place over another letter");
+  }
   // remove the letter
   currentPlayer().letters.splice(index, 1)[0];
   // and add it to board
-  // TODO replace with getter/setter function
-  // FIXME don't allow this if there's already a letter there!
-  let boardIndex = y * HEIGHT + x;
-  if (state.board[boardIndex].letter) {
-    showError("Nope!")
-  }
   state.board[boardIndex] = { letter, finalized: false };
+  render();
+}
+
+function placePiece(x, y, piece) {
+  let index = currentPlayer().pieces.indexOf(piece);
+  if (index < 0) {
+    throw new Error("Could not find piece: " + JSON.stringify(piece));
+  }
+  // TODO replace with getter/setter function
+  let boardIndex = y * HEIGHT + x;
+  if (state.board[boardIndex].piece) {
+    showError("Can't place over another letter")
+    throw new Error("Can't place over another letter");
+  }
+  // and add it to board
+  state.board[boardIndex] = { piece, finalized: false }; // TODO move finalized to piece???
   render();
 }
 
@@ -517,6 +548,7 @@ async function finalizeTurn() {
 function render() {
   const boardEl = document.getElementById("babble-board");
   const letterDisplayEl = document.getElementById("letter-display");
+  const deckEl = document.getElementById("deck");
   const turnSubmitEl = document.getElementById("turn-submit");
   const playerOneNameEl = document.getElementById("player-one-name");
   const playerOneScoreEl = document.getElementById("player-one-score");
@@ -563,6 +595,13 @@ function render() {
               .join("\n")}
         </div>
     `;
+  deckEl.innerHTML = `
+        <div>
+            ${currentPlayer()
+              .pieces.map((p) => `<div class="piece" draggable="true">${p.originalLetter}</div>`)
+              .join("\n")}
+        </div>
+    `;
 }
 
 let letterInHand = null;
@@ -584,6 +623,14 @@ document.addEventListener("click", function (event) {
   render();
   return false;
 });
+
+// document.addEventListener("dragstart", function (event) {
+//   event.target.classList.add("dragging")
+// })
+// 
+// document.addEventListener("dragend", function (event) {
+//   event.target.classList.remove("dragging")
+// })
 
 (async function () {
   // setup correct current state

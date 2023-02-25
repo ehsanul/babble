@@ -17,6 +17,18 @@
         background: url('star.png');
         background-size: contain;
     }
+    div.piece {
+        display: inline-block;
+        width: 30px;
+        height: 30px;
+        vertical-align: middle;
+        text-align: center;
+        border: 1px solid grey;
+        cursor: grab;
+    }
+    .dragging {
+        visibility: hidden;
+    }
 </style>
 
 <div id="babble-app">
@@ -33,6 +45,8 @@
     <div id="babble-board">
     </div>
     <div id="letter-display">
+    </div>
+    <div id="deck">
     </div>
     <button id="turn-submit">Submit</button>
 </div>
