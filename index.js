@@ -543,6 +543,7 @@ async function finalizeTurn() {
   // TODO } else {
   // TODO finishGame();
   // TODO }
+  render();
 }
 
 function render() {
@@ -567,12 +568,12 @@ function render() {
     for (let x = 0; x < WIDTH; x++) {
       // TODO replace with getter/setter function
       let index = y * HEIGHT + x;
-      let className = ''
+      let classes = ['board-cell']
       if (x === Math.floor(WIDTH / 2) && y === Math.floor(HEIGHT / 2)) {
-        className = 'board-center'
+        classes.push('board-center')
       }
       row.push(`
-                <td x="${x}" y="${y}" class="${ className }">
+                <td x="${x}" y="${y}" class="${ classes.join(' ') }">
                     ${state.board[index].letter || ""}
                 </td>
             `);
@@ -584,7 +585,7 @@ function render() {
         `);
   }
   boardEl.innerHTML = `
-        <table>
+        <table id="board">
             ${rows.join("\n")}
         </table>
     `;
@@ -604,26 +605,12 @@ function render() {
     `;
 }
 
-let letterInHand = null;
 document.addEventListener("click", function (event) {
-  if (event.target.className === "piece") {
-    // TODO make this proper selector? or use classname
-    letterInHand = event.target.innerText;
-  }
-
   if (event.target.id === "turn-submit") {
     finalizeTurn();
+    return false;
   }
-
-  if (event.target.tagName === "TD") {
-    const x = parseInt(event.target.attributes.x.value, 10);
-    const y = parseInt(event.target.attributes.y.value, 10);
-    placeLetter(x, y, letterInHand);
-  }
-  render();
-  return false;
 });
-
 
 (async function () {
   // setup correct current state
@@ -646,15 +633,36 @@ document.addEventListener("click", function (event) {
   // document.addEventListener("dragstart", function (event) {
   //   return false;
   // })
+  let dragged = null
   document.addEventListener("dragstart", function (event) {
-    console.log(event)
     setTimeout(() => {
       event.target.classList.add("dragging")
     }, 10)
+    dragged = event.target
   })
 
   document.addEventListener("dragend", function (event) {
     event.target.classList.remove("dragging")
+  })
+
+  document.addEventListener("dragover", function (event) {
+    console.log('dragover', event.target)
+    if (event.target.classList.contains("board-cell")) {
+      event.preventDefault();
+    }
+  })
+
+  document.addEventListener("drop", function (event) {
+    console.log('drop', event.target)
+    // prevent default action (open as link for some elements)
+    event.preventDefault();
+    if (event.target.classList.contains("board-cell")) {
+      // TODO adjust board state etc. Then just render again instead of manually
+      // manipulating the DOM directly
+      dragged.classList.remove("dragging")
+      dragged.parentNode.removeChild(dragged);
+      event.target.appendChild(dragged);
+    }
   })
 
 })();
